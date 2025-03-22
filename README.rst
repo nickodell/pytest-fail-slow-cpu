@@ -23,6 +23,18 @@
     :target: https://opensource.org/licenses/MIT
     :alt: MIT License
 
+=======
+Warning
+
+This fork is under active development. It may or may not work.
+
+This fork of pytest-fail-slow is based on MIT-licensed code by John T. Wodder II and 
+Mike Fiedler.
+
+==============
+Previous README
+
+
 `GitHub <https://github.com/jwodder/pytest-fail-slow>`_
 | `PyPI <https://pypi.org/project/pytest-fail-slow/>`_
 | `Issues <https://github.com/jwodder/pytest-fail-slow/issues>`_
