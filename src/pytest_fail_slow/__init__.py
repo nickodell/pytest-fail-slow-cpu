@@ -20,6 +20,7 @@ from collections.abc import Generator, Mapping
 import os
 import platform
 import re
+import time
 import sys
 import traceback
 from typing import Union
@@ -41,6 +42,9 @@ TIME_UNITS = {
 
 setup_timeout_key = pytest.StashKey[Union[int, float, None]]()
 call_timeout_key = pytest.StashKey[Union[int, float, None]]()
+
+process_time_key = pytest.StashKey[float]()
+wall_time_key = pytest.StashKey[float]()
 
 
 def parse_duration(s: str | int | float) -> int | float:
@@ -168,6 +172,27 @@ def evaluate_enabled(item: pytest.Item, mark_name: str, condition: str) -> bool:
         ]
         pytest.fail("\n".join(msglines), pytrace=False)
 
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_call(item):
+    start_cpu = time.process_time()
+    start_wall = time.perf_counter()
+    yield
+    end_cpu = time.process_time()
+    end_wall = time.perf_counter()
+    duration_cpu = end_cpu - start_cpu
+    duration_wall = end_wall - start_wall
+    item.stash[process_time_key] = duration_cpu
+    item.stash[wall_time_key] = duration_wall
+
+@pytest.hookimpl
+def pytest_json_runtest_metadata(item, call):
+    if call.when != 'call':
+        return {}
+    return {
+        'call_cpu_time': item.stash[process_time_key],
+        'call_wall_time': item.stash[wall_time_key],
+    }
+
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(
@@ -185,11 +210,12 @@ def pytest_runtest_makereport(
                 f" Duration {call.duration}s > {timeout}s"
             )
     elif report.when == "call":
+        duration = item.stash[process_time_key]
         timeout = item.stash[call_timeout_key]
-        if timeout is not None and call.duration > timeout:
+        if timeout is not None and duration > timeout:
             report.outcome = "failed"
             report.longrepr = (
                 "Test passed but took too long to run:"
-                f" Duration {call.duration}s > {timeout}s"
+                f" Duration {duration}s > {timeout}s"
             )
     return report
